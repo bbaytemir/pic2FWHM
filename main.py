@@ -1,7 +1,9 @@
-import wx, numpy as np
+import wx
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
+import math
+from scipy.stats import norm
 
 
 class MyCanvas(wx.ScrolledWindow):
@@ -44,16 +46,20 @@ class MyCanvas(wx.ScrolledWindow):
         line, = ax.plot(t, vals, lw=2)
 
         max_points = argrelextrema(np.array(vals), np.greater)
+        print(max_points[0])
         for poi in max_points[0]:
             if vals[poi] > 120:
                 print("max @ " + str(t[poi]) + " and value is " + str(vals[poi]))
                 ax.annotate('max val: ' + str(vals[poi]), xy=(t[poi], vals[poi]), xytext=(t[poi] + 1, vals[poi] + 20),
                             arrowprops=dict(facecolor='blue', shrink=0.05))
-                ss = 10
-                if len(vals) - poi < 11:
+                ss = 300
+                if len(vals) - poi < 300:
                     ss = len(vals) - poi - 1
-                first_fwhm = poi - [x for x in range(ss) if vals[poi - x] < vals[poi] / 2 < vals[poi - x + 1]][0]
-                second_fwhm = poi + [x for x in range(ss) if vals[poi + x] > vals[poi] / 2 > vals[poi + x + 1]][0]
+
+                tmp_first = [x for x in range(ss) if vals[poi - x] < vals[poi] / 2 < vals[poi - x + 1]]
+                tmp_second = [x for x in range(ss) if vals[poi + x] > vals[poi] / 2 > vals[poi + x + 1]]
+                first_fwhm = poi - tmp_first[0]
+                second_fwhm = poi + tmp_second[0]
 
                 x_max = t[first_fwhm + 1]
                 x_min = t[first_fwhm]
@@ -62,10 +68,10 @@ class MyCanvas(wx.ScrolledWindow):
                 y_min = vals[first_fwhm]
 
                 x_max2 = t[second_fwhm]
-                x_min2 = t[second_fwhm+1]
+                x_min2 = t[second_fwhm + 1]
 
                 y_max2 = vals[second_fwhm]
-                y_min2 = vals[second_fwhm+1]
+                y_min2 = vals[second_fwhm + 1]
 
                 wanted_y = vals[poi] / 2
 
@@ -81,19 +87,49 @@ class MyCanvas(wx.ScrolledWindow):
 
                 print("diff x " + str(fh1))
                 print("diff x2 " + str(fh2))
-                fwhm = fh2-fh1
+                fwhm = fh2 - fh1
                 ax.annotate('fh1 : ' + str(fh1), xy=(fh1, wanted_y),
-                            xytext=(fh1+ 1, wanted_y + 20),
+                            xytext=(fh1 + 1, wanted_y + 20),
                             arrowprops=dict(facecolor='blue', shrink=0.05))
                 ax.annotate('fh2 : ' + str(fh2), xy=(fh2, wanted_y),
                             xytext=(fh2 - 1, wanted_y - 20),
                             arrowprops=dict(facecolor='blue', shrink=0.05))
                 # fwhm = 2.3548 * sigma from http://mathworld.wolfram.com/GaussianFunction.html
-                sigma = fwhm / 2.3548
-                print("fwhm is " + str(fwhm) + " and sigma is " + str(sigma) + " for max " + str(wanted_y*2))
+                sigma = self.Gamma2sigma(fwhm)
+                print("fwhm is " + str(fwhm) + " and sigma is " + str(sigma) + " for max " + str(wanted_y * 2))
 
+                ro = 1 / (vals[poi] * math.sqrt((2 * math.pi)))
+                # print(ro)
+
+                # calculating error
+
+                gaussian = vals[poi - 10:poi + 10]
+                offset = min(gaussian)
+                max_val = max(gaussian) - offset
+                rang = np.array(range(1, 21))
+                real_gaussian = max_val * np.exp(- ((rang - 10) / fwhm) ** 2)
+
+                summ = 0
+                for k in range(0, len(rang)):
+                    summ += math.pow(real_gaussian[k] - gaussian[k], 2)
+
+                err = math.sqrt(summ)
+
+                print("error : ", err)
 
         plt.show()
+
+    def sigma2Gamma(self, sigma):
+        '''Function to convert standard deviation (sigma) to FWHM (Gamma)'''
+        return sigma * math.sqrt(2 * math.log(2)) * 2 / math.sqrt(2)
+
+    def Gamma2sigma(self, Gamma):
+        '''Function to convert FWHM (Gamma) to standard deviation (sigma)'''
+        return Gamma * math.sqrt(2) / (math.sqrt(2 * math.log(2)) * 2)
+
+    def Gaussian(self, k, ro, n_2):
+        return (1 / (math.sqrt(2 * math.pow(ro, 2) ** math.pi))) * np.exp(
+            -(np.power((k - n_2), 2.) / (math.pow(ro, 2) * 2)))
 
     def DrawGrapha(self, event):
         char = event.GetKeyCode()
@@ -161,7 +197,7 @@ if __name__ == '__main__':
     app.SetOutputWindowAttributes(title='stdout')
     wx.InitAllImageHandlers()
 
-    filepath = 'first.jpg'
+    filepath = 'first3.jpg'
     if filepath:
         print(filepath)
         myframe = MyFrame(filepath=filepath)
