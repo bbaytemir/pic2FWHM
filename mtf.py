@@ -10,6 +10,8 @@ class MyCanvas(wx.ScrolledWindow):
     clicks = [[0, 0], [0, 0]]
     point = 0
     bmp = []
+    all_datas = [[0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0]]  # 9 lp/mm 2 key : h(1)-v(0)
 
     def clear_draw(self):
         self.image = wx.Image(filepath)
@@ -43,84 +45,41 @@ class MyCanvas(wx.ScrolledWindow):
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        line, = ax.plot(t, vals, lw=2)
+        line, = ax.plot([asd / 13 for asd in t], vals, lw=2)
 
-        max_points = argrelextrema(np.array(vals), np.greater)
-        print(max_points[0])
-        for poi in max_points[0]:
-            if vals[poi] > 120:
-                print("max @ " + str(t[poi]) + " and value is " + str(vals[poi]))
+        poi = vals.index(max(vals))
+        pom = vals.index(min(vals))
+        spp = vals[poi] - vals[pom]
 
-                ax.annotate('max val: ' + str(vals[poi]), xy=(t[poi], vals[poi]), xytext=(t[poi] + 1, vals[poi] + 20),
-                            arrowprops=dict(facecolor='blue', shrink=0.05))
-                ss = 300
-                if len(vals) - poi < 300:
-                    ss = len(vals) - poi - 1
+        print("max @ " + str(t[poi]) + " and value is " + str(vals[poi]))
+        print("min @ " + str(t[pom]) + " and value is " + str(vals[pom]))
 
-                tmp_first = [x for x in range(ss) if vals[poi - x] < vals[poi] / 2 < vals[poi - x + 1]]
-                tmp_second = [x for x in range(ss) if vals[poi + x] > vals[poi] / 2 > vals[poi + x + 1]]
-                first_fwhm = poi - tmp_first[0]
-                second_fwhm = poi + tmp_second[0]
+        ax.annotate('max val: ' + str(vals[poi]), xy=(t[poi] / 13, vals[poi]), xytext=(t[poi] / 13 + 0.1, vals[poi] + 1.3),
+                    arrowprops=dict(facecolor='red', shrink=0.05))
+        ax.annotate('min val: ' + str(vals[pom]), xy=(t[pom] / 13, vals[pom]), xytext=(t[pom] / 13 - 0.1, vals[pom] - 1.3),
+                    arrowprops=dict(facecolor='red', shrink=0.05))
 
-                x_max = t[first_fwhm + 1]
-                x_min = t[first_fwhm]
+        print("Spp  -> ", spp)
 
-                y_max = vals[first_fwhm + 1]
-                y_min = vals[first_fwhm]
-
-                x_max2 = t[second_fwhm]
-                x_min2 = t[second_fwhm + 1]
-
-                y_max2 = vals[second_fwhm]
-                y_min2 = vals[second_fwhm + 1]
-
-                wanted_y = vals[poi] / 2
-
-                slope = (y_max - y_min) / (x_max - x_min)
-                slope2 = (y_max2 - y_min2) / (x_min2 - x_max2)
-
-                dec_x = slope / wanted_y
-                dec_x2 = slope2 / wanted_y
-
-                fh1 = x_max - dec_x
-
-                fh2 = x_max2 + dec_x2
-
-                print("diff x " + str(fh1))
-                print("diff x2 " + str(fh2))
-                fwhm = fh2 - fh1
-                ax.annotate('fh1 : ' + str(fh1), xy=(fh1, wanted_y),
-                            xytext=(fh1 + 1, wanted_y + 20),
-                            arrowprops=dict(facecolor='blue', shrink=0.05))
-                ax.annotate('fh2 : ' + str(fh2), xy=(fh2, wanted_y),
-                            xytext=(fh2 - 1, wanted_y - 20),
-                            arrowprops=dict(facecolor='blue', shrink=0.05))
-                # fwhm = 2.3548 * sigma from http://mathworld.wolfram.com/GaussianFunction.html
-                sigma = self.Gamma2sigma(fwhm)
-                print("fwhm is " + str(fwhm) + " and sigma is " + str(sigma) + " for max " + str(wanted_y * 2))
-
-                ro = 1 / (vals[poi] * math.sqrt((2 * math.pi)))
-                # print(ro)
-
-                # calculating error
-
-                gaussian = vals[poi - 10:poi + 10]
-                offset = min(gaussian)
-                max_val = max(gaussian) - offset
-                rang = np.array(range(1, 21))
-                real_gaussian = max_val * np.exp(- ((rang - 10) / fwhm) ** 2)
-
-                summ = 0
-                sum2 = 0
-                for k in range(0, len(rang)):
-                    summ += math.pow(real_gaussian[k] - gaussian[k], 2)
-                    sum2 += gaussian[k]
-
-                err = 100 * math.sqrt(summ) / math.sqrt(sum2)
-
-                print("error : ", err)
+        self.all_datas[self.key][self.data_index] = spp
 
         plt.show()
+
+    def result_plot(self):
+        fig = plt.figure()
+        plt.title("asd")
+        ax = fig.add_subplot(111)
+        t = [0.1, 0.2, 0.5, 0.75, 1.0, 1.5, 2, 2.5, 3.0]
+        line, = ax.plot(t, self.all_datas[0], lw=2)
+        plt.show()
+
+        fig = plt.figure()
+        plt.title("asdxx")
+        ax = fig.add_subplot(111)
+        line, = ax.plot(t, self.all_datas[1], lw=2)
+        plt.show()
+
+        print(self.all_datas)
 
     def sigma2Gamma(self, sigma):
         '''Function to convert standard deviation (sigma) to FWHM (Gamma)'''
@@ -134,20 +93,37 @@ class MyCanvas(wx.ScrolledWindow):
         return (1 / (math.sqrt(2 * math.pow(ro, 2) ** math.pi))) * np.exp(
             -(np.power((k - n_2), 2.) / (math.pow(ro, 2) * 2)))
 
+    key = -1
+    data_index = 0
+
     def DrawGrapha(self, event):
         char = event.GetKeyCode()
-        if char == 13:
+        self.key = -1
+        if char == 13:  # vertical
             self.dc.Clear()
             self.clear_draw()
             self.Refresh()
-            asd = [int(sum(i) / 3) for i in self.arr2[self.clicks[0][1],
-                                            self.clicks[0][0]:self.clicks[1][0]]]
+            asd = [int(sum(i) / 3) for i in self.arr2[self.clicks[0][1]:self.clicks[1][1],
+                                            self.clicks[0][0]]]
             print(asd)
-            xx = range(self.clicks[0][0], self.clicks[1][0])
-
+            xx = range(self.clicks[0][1], self.clicks[1][1])
+            self.key = 0
             self.plot(asd, xx)
         elif char == 27:
             exit(1)
+        elif char == 44:  # horizontal
+            self.dc.Clear()
+            self.clear_draw()
+            self.Refresh()
+            asd = [int(sum(i) / 3) for i in self.arr2[self.clicks[0][1], self.clicks[0][0]:self.clicks[1][0]]]
+            print(asd)
+            xx = range(self.clicks[0][0], self.clicks[1][0])
+            self.key = 1
+            self.plot(asd, xx)
+        elif 48 < char < 58:
+            self.data_index = char - 49
+        elif char == 82:
+            self.result_plot()
         else:
             print(char)
             print("unknown char")
@@ -172,7 +148,10 @@ class MyCanvas(wx.ScrolledWindow):
         dc = wx.BufferedPaintDC(self, self.buffer, wx.BUFFER_VIRTUAL_AREA)
         'dc = wx.PaintDC(self)'
         dc.SetPen(wx.Pen(wx.RED, 4))
-        dc.DrawLine(self.clicks[0][0], self.clicks[0][1], self.clicks[1][0], self.clicks[0][1])
+        if self.key == 0:
+            dc.DrawLine(self.clicks[0][0], self.clicks[0][1], self.clicks[0][0], self.clicks[1][1])
+        elif self.key == 1:
+            dc.DrawLine(self.clicks[0][0], self.clicks[0][1], self.clicks[1][0], self.clicks[0][1])
 
     def DoDrawing(self, dc):
         dc.DrawBitmap(self.bmp, 0, 0)
@@ -200,7 +179,7 @@ if __name__ == '__main__':
     app.SetOutputWindowAttributes(title='stdout')
     wx.InitAllImageHandlers()
 
-    filepath = 'first3.jpg'
+    filepath = 'mtf.jpg'
     if filepath:
         print(filepath)
         myframe = MyFrame(filepath=filepath)
