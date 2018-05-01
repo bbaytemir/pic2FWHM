@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import argrelextrema
 import math
 from scipy.stats import norm
+from numpy import trapz
 
 
 class MyCanvas(wx.ScrolledWindow):
@@ -54,9 +55,11 @@ class MyCanvas(wx.ScrolledWindow):
         print("max @ " + str(t[poi]) + " and value is " + str(vals[poi]))
         print("min @ " + str(t[pom]) + " and value is " + str(vals[pom]))
 
-        ax.annotate('max val: ' + str(vals[poi]), xy=(t[poi] / 13, vals[poi]), xytext=(t[poi] / 13 + 0.1, vals[poi] + 1.3),
+        ax.annotate('max val: ' + str(vals[poi]), xy=(t[poi] / 13, vals[poi]),
+                    xytext=(t[poi] / 13 + 0.1, vals[poi] + 1.3),
                     arrowprops=dict(facecolor='red', shrink=0.05))
-        ax.annotate('min val: ' + str(vals[pom]), xy=(t[pom] / 13, vals[pom]), xytext=(t[pom] / 13 - 0.1, vals[pom] - 1.3),
+        ax.annotate('min val: ' + str(vals[pom]), xy=(t[pom] / 13, vals[pom]),
+                    xytext=(t[pom] / 13 - 0.1, vals[pom] - 1.3),
                     arrowprops=dict(facecolor='red', shrink=0.05))
 
         print("Spp  -> ", spp)
@@ -66,20 +69,33 @@ class MyCanvas(wx.ScrolledWindow):
         plt.show()
 
     def result_plot(self):
+        print(self.all_datas)
+
+        fdv = self.all_datas[0]
+        fdh = self.all_datas[1]
+        fdvm = max(fdv)
+        fdhm = max(fdh)
+        fdv = [xa / fdvm for xa in fdv]
+        fdh = [xa / fdhm for xa in fdh]
+
         fig = plt.figure()
-        plt.title("asd")
+        plt.title("Vertical Spp")
         ax = fig.add_subplot(111)
         t = [0.1, 0.2, 0.5, 0.75, 1.0, 1.5, 2, 2.5, 3.0]
-        line, = ax.plot(t, self.all_datas[0], lw=2)
+        line, = ax.plot(t, fdv, lw=2)
         plt.show()
+        area_vertical = trapz(fdv, t)
+        print("Vertical Noise Equivalent Bandwidth", str(area_vertical))
 
         fig = plt.figure()
-        plt.title("asdxx")
+        plt.title("Horizontal Spp")
         ax = fig.add_subplot(111)
-        line, = ax.plot(t, self.all_datas[1], lw=2)
+        line, = ax.plot(t, fdh, lw=2)
         plt.show()
 
-        print(self.all_datas)
+        area_horizontal = trapz(fdh, t)
+        print("Horizontal Noise Equivalent Bandwidth", str(area_horizontal))
+
 
     def sigma2Gamma(self, sigma):
         '''Function to convert standard deviation (sigma) to FWHM (Gamma)'''
